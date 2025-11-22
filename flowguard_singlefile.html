@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FlowGuard – Scale Forecast, Treatments & Economics</title>
+<link rel="icon" href="data:," />
+<style>
+  :root{
+    --bg:#0B1220; --bg2:#101A33; --fg:#ECF2FF; --muted:#9FB7E5; --accent:#2878DC;
+    --card:#0E1730; --border:#20305A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);background:linear-gradient(90deg,var(--bg) 0%,var(--bg2) 100%);}
+  .title{font-weight:800;font-size:22px}
+  .sub{color:var(--muted);font-size:13px}
+  .container{display:grid;grid-template-columns: 340px 1fr; gap:16px; padding:16px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .panel h3{margin:.3rem 0 0.6rem 0;font-size:16px}
+  label{display:block;font-size:12px;color:var(--muted);margin-top:8px}
+  input{width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--fg)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  button{background:var(--accent);border:none;color:white;padding:10px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left}
+  canvas{background:#0a0f1f;border-radius:12px;border:1px solid var(--border);padding:6px}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+  .chip{border:1px solid var(--border);color:var(--muted);padding:6px 8px;border-radius:999px;font-size:12px}
+  footer{padding:10px 16px;color:var(--muted);font-size:12px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="title">FlowGuard — Scale Forecast, Treatments & Economics</div>
+  <div class="sub">Inputs → SI → Deposition → Skin → PI • Compare Mitigations • NPV</div>
+</header>
+
+<div class="container">
+  <aside class="panel">
+    <h3>Chemistry & Ops</h3>
+    <div class="grid">
+      <div><label>Well Name</label><input id="well" value="Well_A"></div>
+      <div><label>WH Temp (°C)</label><input id="whT" type="number" value="65"></div>
+      <div><label>Ca (mg/L)</label><input id="Ca" type="number" value="600"></div>
+      <div><label>Ba (mg/L)</label><input id="Ba" type="number" value="58"></div>
+      <div><label>SO₄ (mg/L)</label><input id="SO4" type="number" value="154"></div>
+      <div><label>Alk as CaCO₃ (mg/L)</label><input id="Alk" type="number" value="3376"></div>
+      <div><label>Fe (mg/L)</label><input id="Fe" type="number" value="1.0"></div>
+      <div><label>Sim Days</label><input id="Days" type="number" value="365"></div>
+      <div><label>Oil Rate (bpd)</label><input id="OilRate0" type="number" value="2500"></div>
+      <div><label>Watercut 0–1</label><input id="WC0" type="number" step="0.01" value="0.30"></div>
+      <div><label>WC slope / day</label><input id="WCslope" type="number" step="0.0001" value="0.0015"></div>
+    </div>
+
+    <h3>Completion / PI</h3>
+    <div class="grid">
+      <div><label>k (md)</label><input id="k" type="number" value="25"></div>
+      <div><label>h (ft)</label><input id="h" type="number" value="60"></div>
+      <div><label>μ (cP)</label><input id="mu" type="number" value="2"></div>
+      <div><label>rₑ (ft)</label><input id="re" type="number" value="1000"></div>
+      <div><label>r_w (ft)</label><input id="rw" type="number" value="0.35"></div>
+      <div><label>Initial skin</label><input id="S0" type="number" value="2.0"></div>
+    </div>
+
+    <h3>Treatments</h3>
+    <div class="grid">
+      <div><label>Acid day</label><input id="acid_day" type="number" value="180"></div>
+      <div><label>Squeeze interval (d)</label><input id="squeeze_int" type="number" value="150"></div>
+      <div><label>Squeeze life (d)</label><input id="squeeze_life" type="number" value="150"></div>
+      <div><label>MEC (mg/L)</label><input id="MEC" type="number" step="0.5" value="5"></div>
+    </div>
+
+    <h3>Economics</h3>
+    <div class="grid">
+      <div><label>Oil price ($/bbl)</label><input id="oil_price" type="number" value="70"></div>
+      <div><label>Discount (annual %)</label><input id="disc" type="number" step="0.5" value="10"></div>
+      <div><label>Drawdown (psi)</label><input id="drawdown" type="number" value="300"></div>
+      <div><label>Calibration bbl/(PI·psi·day)</label><input id="calib" type="number" step="0.1" value="1.0"></div>
+      <div><label>Squeeze cost ($)</label><input id="squeeze_cost" type="number" value="25000"></div>
+      <div><label>Acid cost ($)</label><input id="acid_cost" type="number" value="40000"></div>
+      <div><label>Downtime squeeze (d)</label><input id="dt_sq" type="number" step="0.5" value="1"></div>
+      <div><label>Downtime acid (d)</label><input id="dt_ac" type="number" step="0.5" value="1.5"></div>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button onclick="run()">Run Simulation</button>
+      <button onclick="resetToBrine1()">Use Brine-1 Example</button>
+    </div>
+    <div class="chips" id="riskChips"></div>
+  </aside>
+
+  <main class="panel">
+    <div class="grid">
+      <section class="panel">
+        <h3>PI Forecast</h3>
+        <canvas id="piChart" height="140"></canvas>
+      </section>
+      <section class="panel">
+        <h3>Residual vs Time</h3>
+        <canvas id="resChart" height="140"></canvas>
+      </section>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <h3>Current SI (at WH)</h3>
+        <canvas id="siChart" height="140"></canvas>
+      </section>
+      <section class="panel">
+        <h3>NPV by Scenario</h3>
+        <canvas id="npvChart" height="140"></canvas>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h3>Scenario KPI Summary</h3>
+      <table id="kpiTbl"><thead></thead><tbody></tbody></table>
+    </section>
+
+    <section class="panel">
+      <h3>Economics — NPV / ROI / Payback</h3>
+      <table id="econTbl"><thead></thead><tbody></tbody></table>
+    </section>
+  </main>
+</div>
+
+<footer>© FlowGuard demo — single-file, runs locally in your browser</footer>
+
+<script>
+// ---------- Helpers (chem + physics) ----------
+function kspCalcite(T){ const t=Math.max(25,Math.min(90,T)); const log10K=-8.48+(t-25)*(0.18/65); return 10**log10K; }
+function kspBarite(T){ const t=Math.max(25,Math.min(120,T)); const log10K=-9.97+(t-25)*(0.10/95); return 10**log10K; }
+function mgL2Molar(mgL,M){ return (mgL/1000)/M; }
+function carbonateFromAlk(alkCaCO3mgL){ const meqL=alkCaCO3mgL/50.0; return 0.5*(meqL/1000.0); }
+function saturationIndices(chem,T){
+  const Ca=mgL2Molar(chem.Ca,40.078);
+  const Ba=mgL2Molar(chem.Ba,137.327);
+  const SO4=mgL2Molar(chem.SO4,96.06);
+  const CO3=carbonateFromAlk(chem.Alk);
+  const IAPc=Math.max(Ca*CO3,1e-30), IAPb=Math.max(Ba*SO4,1e-30);
+  const SIc=Math.log10(IAPc/kspCalcite(T)), SIb=Math.log10(IAPb/kspBarite(T));
+  return {SIc,SIb};
+}
+function depositionRate(SI, bw, k){ return (SI<=0)?0: k * (10**SI - 1) * Math.max(bw,0); }
+function PI_from_skin(k_md,h_ft,mu_cP,re_ft,rw_ft,S){
+  return (0.00708*k_md*h_ft)/(mu_cP*(Math.log(re_ft/rw_ft)+S));
+}
+
+// ---------- Simulation ----------
+function runScenario(name, u){
+  const N=u.Days;
+  const days=[...Array(N).keys()];
+  const oil=Array(N).fill(u.OilRate0);
+  const wc = days.map(d=> Math.min(0.95, Math.max(0, u.WC0 + u.WCslope*d)));
+  const T  = Array(N).fill(u.WH_T);
+  let S=u.S0, dep_c=0, dep_b=0, residual=0, lastSq=-1e9;
+  const k_c=2e-8, k_b=8e-8;
+  const rows=[];
+
+  for (let i=0;i<N;i++){
+    const d=days[i];
+    // Squeeze schedule
+    if (u.squeeze_every && (d===0 || d-lastSq >= u.squeeze_every)){
+      if (name.includes("Squeeze") || name.includes("Combined")){ residual = 8.0; lastSq=d; }
+    }
+    if (residual>0){
+      const age=d-lastSq;
+      if (age <= u.squeeze_life) residual=Math.max(0, 8*(1-age/u.squeeze_life));
+      else residual = Math.max(0, residual-0.2);
+    }
+
+    const chem={Ca:u.Ca, Ba:u.Ba, SO4:u.SO4, Alk:u.Alk};
+    const {SIc,SIb} = saturationIndices(chem, T[i]);
+    const protected = residual >= u.MEC;
+    const SIc_eff = protected ? -1 : SIc;
+    const SIb_eff = protected ? -1 : SIb;
+
+    const water_rate = oil[i]*wc[i]/(1-wc[i]+1e-12);
+    dep_c += depositionRate(SIc_eff, water_rate, k_c);
+    dep_b += depositionRate(SIb_eff, water_rate, k_b);
+
+    if (name.includes("Acid") && d===u.acid_day){ dep_c = 0; }
+
+    S = u.S0 + 1e-8*dep_c + 2e-8*dep_b;
+    const PI = PI_from_skin(u.k, u.h, u.mu, u.re, u.rw, S);
+    rows.push({day:d, PI, skin:S, residual, SI_CaCO3:SIc, SI_BaSO4:SIb});
+  }
+  return rows;
+}
+
+function barrelsIndex(PI, drawdown=300){ return PI.reduce((acc,v)=>acc+v*drawdown,0); }
+
+// ---------- Economics ----------
+function schedule(name, N, acid_day, squeeze_every){
+  const acid=[], sq=[];
+  if ((name.includes("Acid") || name.includes("Combined")) && acid_day>=0 && acid_day<N) acid.push(acid_day);
+  if (name.includes("Squeeze") || name.includes("Combined")){
+    if (squeeze_every>0){ for (let d=0; d<N; d+=squeeze_every) sq.push(d); }
+  }
+  return {acid, sq};
+}
+
+function econForScenario(name, df, base, p, u){
+  const N=df.length;
+  const daily_disc = (1+p.disc)**(1/365)-1;
+  const upliftIndexDaily = df.map((r,i)=> (r.PI - base[i].PI) * p.drawdown * p.calib);
+  const revenue = upliftIndexDaily.map(bbl => bbl*p.oil_price);
+
+  const {acid, sq} = schedule(name, N, u.acid_day, u.squeeze_every);
+  const cost = new Array(N).fill(0);
+  acid.forEach(d=>{ if(d>=0&&d<N) cost[d]-=p.acid_cost; });
+  sq.forEach(d=>{ if(d>=0&&d<N) cost[d]-=p.squeeze_cost; });
+  // Downtime lost barrels, using OilRate0
+  acid.forEach(d=>{ for(let i=d;i<Math.min(N,d+Math.ceil(p.dt_ac));i++) cost[i]-=u.OilRate0*p.oil_price; });
+  sq.forEach(d=>{ for(let i=d;i<Math.min(N,d+Math.ceil(p.dt_sq));i++) cost[i]-=u.OilRate0*p.oil_price; });
+
+  let npv=0, cum=0, totalRev=0, totalCost=0;
+  for (let i=0;i<N;i++){
+    const cf = revenue[i] + cost[i];
+    const df = (1+daily_disc)**i;
+    npv += cf/df;
+    cum += cf/df;
+    totalRev += revenue[i];
+    totalCost += -Math.min(0,cost[i]);
+  }
+  const roi = totalCost>0 ? (totalRev-totalCost)/totalCost : NaN;
+  let payback = null, cum2=0;
+  for (let i=0;i<N;i++){ cum2 += (revenue[i]+cost[i])/((1+daily_disc)**i); if (cum2>0){ payback=i; break; } }
+  return {scenario:name, NPV_USD:npv, Total_Revenue_USD:totalRev, Total_Costs_USD:totalCost, ROI:roi, Payback_days:payback};
+}
+
+// ---------- UI glue ----------
+let piChart,resChart,siChart,npvChart;
+
+function run(){
+  const u={
+    well: val("well"),
+    WH_T: num("whT"), Ca:num("Ca"), Ba:num("Ba"), SO4:num("SO4"), Alk:num("Alk"), Fe:num("Fe"),
+    Days: num("Days"), OilRate0:num("OilRate0"), WC0:num("WC0"), WCslope:num("WCslope"),
+    k:num("k"), h:num("h"), mu:num("mu"), re:num("re"), rw:num("rw"), S0:num("S0"),
+    acid_day:num("acid_day"), squeeze_every:num("squeeze_int"), squeeze_life:num("squeeze_life"), MEC:num("MEC")
+  };
+  const p={ oil_price:num("oil_price"), disc:num("disc")/100.0, drawdown:num("drawdown"), calib:num("calib"),
+            squeeze_cost:num("squeeze_cost"), acid_cost:num("acid_cost"), dt_sq:num("dt_sq"), dt_ac:num("dt_ac") };
+
+  const scenarios=[
+    {name:"Base (no treatment)"},
+    {name:`Acid @ day ${u.acid_day}`},
+    {name:`Squeeze q${u.squeeze_every}d`},
+    {name:"Combined"}
+  ];
+
+  const df={};
+  scenarios.forEach(s=> df[s.name] = runScenario(s.name, u));
+  const base = df["Base (no treatment)"];
+
+  // KPIs
+  const summary=[];
+  Object.entries(df).forEach(([name,rows])=>{
+    const PI = rows.map(r=>r.PI);
+    const avgPI = avg(PI), endPI = PI[PI.length-1];
+    const avgSkin = avg(rows.map(r=>r.skin));
+    const idx = barrelsIndex(PI);
+    const uplift = idx - barrelsIndex(base.map(r=>r.PI));
+    summary.push({scenario:name, avg_PI:avgPI, end_PI:endPI, avg_skin:avgSkin, bbl_equiv_index:idx, uplift_vs_base_index:uplift});
+  });
+  renderTable("kpiTbl", ["scenario","avg_PI","end_PI","avg_skin","bbl_equiv_index","uplift_vs_base_index"], summary);
+
+  // SIs
+  const {SIc,SIb} = saturationIndices({Ca:u.Ca,Ba:u.Ba,SO4:u.SO4,Alk:u.Alk}, u.WH_T);
+  renderSI(SIc,SIb);
+
+  // Charts
+  renderPI(Object.keys(df), df);
+  renderResidual(df);
+  // Economics
+  const econRows = Object.entries(df).map(([name,rows])=> econForScenario(name, rows, base, p, u));
+  econRows.sort((a,b)=> b.NPV_USD - a.NPV_USD);
+  renderTable("econTbl", ["scenario","NPV_USD","Total_Revenue_USD","Total_Costs_USD","ROI","Payback_days"], econRows);
+  renderNPV(econRows);
+
+  renderRiskChips(SIc, SIb, u.Fe);
+}
+
+function renderRiskChips(SIc, SIb, Fe){
+  const e=document.getElementById("riskChips"); e.innerHTML="";
+  function add(text){ const s=document.createElement("span"); s.className="chip"; s.textContent=text; e.appendChild(s); }
+  add(`SI CaCO₃ = ${SIc.toFixed(2)}`); add(`SI BaSO₄ = ${SIb.toFixed(2)}`);
+  if (SIb>=0.1) add("Recommend: PPCA for sulfate risk");
+  if (SIc>=0.1) add("Recommend: PAA/PBTC/Phosphonate for carbonate risk");
+  if (SIb>=0.1 && SIc>=0.1) add("Recommend: Polymer–phosphonate blend");
+  if (Fe>=2.0) add("High Fe: add corrosion/iron control");
+}
+
+function renderPI(names, data){
+  const labels=data[names[0]].map(r=>r.day);
+  const datasets = names.map((n,i)=> ({
+    label:n,
+    data:data[n].map(r=>r.PI),
+    borderWidth:2,
+    fill:false
+  }));
+  if (piChart) piChart.destroy();
+  piChart = new Chart(document.getElementById("piChart"),
+    {type:"line", data:{labels,datasets}, options:{responsive:true, plugins:{legend:{position:"bottom"}}}});
+}
+function renderResidual(data){
+  const names=Object.keys(data).filter(n=> n.includes("Squeeze")||n.includes("Combined"));
+  const labels = names.length? data[names[0]].map(r=>r.day): [];
+  const datasets = names.map(n=> ({label:n,data:data[n].map(r=>r.residual),borderWidth:2,fill:false}));
+  if (resChart) resChart.destroy();
+  resChart = new Chart(document.getElementById("resChart"), {type:"line", data:{labels,datasets}});
+}
+function renderSI(SIc,SIb){
+  const labels=["CaCO₃","BaSO₄"]; const data=[SIc,SIb];
+  if (siChart) siChart.destroy();
+  siChart = new Chart(document.getElementById("siChart"), {type:"bar",
+    data:{labels,datasets:[{label:"SI",data}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:false}}}});
+}
+function renderNPV(rows){
+  const labels=rows.map(r=>r.scenario);
+  const data=rows.map(r=>r.NPV_USD);
+  if (npvChart) npvChart.destroy();
+  npvChart = new Chart(document.getElementById("npvChart"), {type:"bar",
+    data:{labels,datasets:[{label:"NPV (USD)",data}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:false}}}});
+}
+
+function renderTable(id, cols, rows){
+  const thead=document.querySelector(`#${id} thead`);
+  const tbody=document.querySelector(`#${id} tbody`);
+  thead.innerHTML="<tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr>";
+  tbody.innerHTML = rows.map(r=>"<tr>"+cols.map(c=>`<td>${fmt(r[c])}</td>`).join("")+"</tr>").join("");
+}
+
+function fmt(v){
+  if (v==null || Number.isNaN(v)) return "—";
+  if (typeof v==="number"){
+    const abs=Math.abs(v);
+    if (abs>=1e6) return v.toLocaleString(undefined,{maximumFractionDigits:0});
+    if (abs>=1000) return v.toLocaleString(undefined,{maximumFractionDigits:0});
+    return v.toLocaleString(undefined,{maximumFractionDigits:3});
+  }
+  return v;
+}
+
+function avg(a){ return a.reduce((s,v)=>s+v,0)/a.length; }
+function val(id){ return document.getElementById(id).value; }
+function num(id){ return parseFloat(document.getElementById(id).value); }
+
+function resetToBrine1(){
+  set("Ca",300); set("Ba",58); set("SO4",154); set("Alk",3376); set("Fe",0); set("whT",65);
+  set("OilRate0",2500); set("WC0",0.30); set("WCslope",0.0015); set("Days",365);
+  run();
+}
+function set(id,v){ document.getElementById(id).value=v; }
+
+// Auto-run on load
+window.addEventListener("DOMContentLoaded", run);
+</script>
+</body>
+</html>
